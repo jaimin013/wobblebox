@@ -12,47 +12,41 @@ export async function GET(request: NextRequest) {
         {
           error: "unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
-   const searchParams = request.nextUrl.searchParams
-  const queryUserId = searchParams.get("userId")
-  const parentId = searchParams.get("parentId")
+    const searchParams = request.nextUrl.searchParams;
+    const queryUserId = searchParams.get("userId");
+    const parentId = searchParams.get("parentId");
 
-  if (!queryUserId || queryUserId !== userId) {
-    return NextResponse.json(
-      {
-        error: "unauthorized",
-      },
-      { status: 401 }
-    );
-  }
+    if (queryUserId && queryUserId !== userId) {
+      return NextResponse.json(
+        {
+          error: "forbidden",
+        },
+        { status: 403 },
+      );
+    }
 
-  let userFiles;
-  if (parentId) {
-    //fetch from a folder specific
-  userFiles =  await db
-    .select()
-    .from(files)
-    .where(
-      and(
-        eq(files.userId, userId),
-        eq(files.parentId, parentId),
+    let userFiles;
+    if (parentId) {
+      userFiles = await db
+        .select()
+        .from(files)
+        .where(and(eq(files.userId, userId), eq(files.parentId, parentId)));
+    } else {
+      userFiles = await db
+        .select()
+        .from(files)
+        .where(and(eq(files.userId, userId), isNull(files.parentId)));
+    }
 
-      )
-    )
-  }else{
-   userFiles = await db
-    .select()
-    .from(files)
-    .where(
-      and(
-        eq(files.userId, userId),
-        isNull(files.parentId)
-      )
-    )
-  } return NextResponse.json(userFiles)
+    return NextResponse.json(userFiles);
   } catch (error) {
-    return NextResponse.json({error: "failing to fetching file"}, {status: 401})
+    console.error("Error fetching files", error);
+    return NextResponse.json(
+      { error: "failed to fetch files" },
+      { status: 500 },
+    );
   }
 }

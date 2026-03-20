@@ -1,11 +1,9 @@
 import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
-import { error } from "console";
 import { and, eq } from "drizzle-orm";
 import ImageKit from "imagekit";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
 const imagekit = new ImageKit({
@@ -22,20 +20,33 @@ export async function POST(request: NextRequest) {
         {
           error: "unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const formUserId = formData.get("userId") as string;
-    const parentId = formData.get("parentId") as string;
+    const parentId = (formData.get("parentId") as string) || null;
+
+    if (
+      !process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY ||
+      !process.env.IMAGEKIT_PRIVATE_KEY ||
+      !process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT
+    ) {
+      return NextResponse.json(
+        {
+          error: "imagekit environment variables are not configured",
+        },
+        { status: 500 },
+      );
+    }
 
     if (formUserId !== userId) {
       return NextResponse.json(
         {
-          error: "unauthorized",
+          error: "forbidden",
         },
-        { status: 401 }
+        { status: 403 },
       );
     }
     if (!file) {
@@ -43,9 +54,19 @@ export async function POST(request: NextRequest) {
         {
           error: "no file is provided",
         },
-        { status: 401 }
+        { status: 400 },
       );
     }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          error: "file size exceeds 5mb limit",
+        },
+        { status: 413 },
+      );
+    }
+
     if (parentId) {
       const [parentFolder] = await db
         .select()
@@ -54,17 +75,18 @@ export async function POST(request: NextRequest) {
           and(
             eq(files.id, parentId),
             eq(files.userId, userId),
-            eq(files.isFolder, true)
-          )
+            eq(files.isFolder, true),
+          ),
         );
-    }
-    if (!parentId) {
-      return NextResponse.json(
-        {
-          error: "directory not found/parent id not found",
-        },
-        { status: 401 }
-      );
+
+      if (!parentFolder) {
+        return NextResponse.json(
+          {
+            error: "parent folder not found",
+          },
+          { status: 404 },
+        );
+      }
     }
 
     if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
@@ -72,55 +94,117 @@ export async function POST(request: NextRequest) {
         {
           error: "only images and pdf are supported for upload",
         },
-        { status: 401 }
+        { status: 415 },
       );
     }
 
     const buffer = await file.arrayBuffer();
     const fileBuffer = Buffer.from(buffer);
 
-    const folderPath = parentId ? `/wobblebox/${userId}/folder/${parentId}` : `/wobblebox/${userId}`
+    const folderPath = parentId
+      ? `/wobblebox/${userId}/folder/${parentId}`
+      : `/wobblebox/${userId}`;
 
     const originalFilename = file.name;
-    const allowedExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "pdf"];
-    const allowedMimeTypes = ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp"];
+    const allowedExtensions = [
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "bmp",
+      "webp",
+      "pdf",
+    ];
+    const allowedMimeTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/bmp",
+      "image/webp",
+    ];
 
-    const fileExtension= originalFilename.split(".").pop() || "";
+    const fileExtension = (
+      originalFilename.split(".").pop() || ""
+    ).toLowerCase();
     const fileMimeType = file.type;
 
-   if(!allowedExtensions.includes(fileExtension) || !allowedMimeTypes.includes(fileMimeType)){
-    return NextResponse.json({
-      error: "only valid image and pdf extension are allowed"
-    }, {status: 401})
-   }
-    const uniqueFilename = `${uuidv4()}.${fileExtension}`
+    if (
+      !allowedExtensions.includes(fileExtension) ||
+      !allowedMimeTypes.includes(fileMimeType)
+    ) {
+      return NextResponse.json(
+        {
+          error: "only valid image and pdf extension are allowed",
+        },
+        { status: 415 },
+      );
+    }
+    const uniqueFilename = `${uuidv4()}.${fileExtension}`;
 
-   const uploadResponse = await imagekit.upload({
-      file: fileBuffer,
-      fileName: uniqueFilename,
-      folder: folderPath,
-      useUniqueFileName: false
-    })
+    let uploadResponse;
+    try {
+      uploadResponse = await imagekit.upload({
+        file: fileBuffer,
+        fileName: uniqueFilename,
+        folder: folderPath,
+        useUniqueFileName: false,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "ImageKit upload failed";
+      console.error("ImageKit upload failure", error);
+      return NextResponse.json(
+        {
+          error: "upload provider failed",
+          stage: "imagekit_upload",
+          details: message,
+        },
+        { status: 502 },
+      );
+    }
 
     const fileData = {
-        name: originalFilename,
-        path: uploadResponse.filePath,
-        size: file.size,
-        type: file.type,
-        fileUrl: uploadResponse.url,
-        thumbnailUrl: uploadResponse.thumbnailUrl || null,
-        userId: userId,
-        parentId:parentId,
-        isFolder: false,
-        isStarred: false,
-        isTrash: false,
+      name: originalFilename,
+      path: uploadResponse.filePath,
+      size: file.size,
+      type: file.type,
+      fileUrl: uploadResponse.url,
+      thumbnailUrl: uploadResponse.thumbnailUrl || null,
+      userId: userId,
+      parentId: parentId || null,
+      isFolder: false,
+      isStarred: false,
+      isTrash: false,
+    };
+    let newFile;
+    try {
+      [newFile] = await db.insert(files).values(fileData).returning();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Database insert failed";
+      console.error("Database insert failure", error);
+      return NextResponse.json(
+        {
+          error: "failed to save uploaded file metadata",
+          stage: "db_insert",
+          details: message,
+        },
+        { status: 500 },
+      );
     }
-   const [newFile] = await db.insert(files).values(fileData).returning();
 
-   return NextResponse.json(newFile)
+    return NextResponse.json(newFile, { status: 201 });
   } catch (error) {
-    return NextResponse.json({
-      error: "failed to upload file"
-    }, {status: 401})
+    const message =
+      error instanceof Error ? error.message : "Unknown upload error";
+    console.error("Failed to upload file", error);
+    return NextResponse.json(
+      {
+        error: "failed to upload file",
+        details: message,
+      },
+      { status: 500 },
+    );
   }
 }

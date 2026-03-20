@@ -1,22 +1,21 @@
 import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
-import { error } from "console";
 import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(
   request: NextRequest,
-  props: { params: Promise<{ fileId: string }> }
+  props: { params: Promise<{ fileId: string }> },
 ) {
   try {
     const { userId } = await auth();
-    if (!userId) { 
+    if (!userId) {
       return NextResponse.json(
         {
           error: "unauthrized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -26,7 +25,7 @@ export async function PATCH(
         {
           error: "fileid is required",
         },
-        { status: 401 }
+        { status: 400 },
       );
     }
     const [file] = await db
@@ -39,27 +38,28 @@ export async function PATCH(
         {
           error: "id not found",
         },
-        { status: 401 }
+        { status: 404 },
       );
     }
-   const [updatedFiles] = await db
+    const [updatedFiles] = await db
       .update(files)
       .set({ isTrash: !file.isTrash })
       .where(and(eq(files.id, fileId), eq(files.userId, userId)))
       .returning();
-    
-      const action = updatedFiles.isTrash ? "moved to trash" : "restored";
 
-      return NextResponse.json({
-        ...updatedFiles,
-        message: `File is ${action} succesfully`
-      })
+    const action = updatedFiles.isTrash ? "moved to trash" : "restored";
+
+    return NextResponse.json({
+      ...updatedFiles,
+      message: `File is ${action} succesfully`,
+    });
   } catch (error) {
+    console.error("failed to update trash status", error);
     return NextResponse.json(
       {
         error: "failed to update trash your file status",
       },
-      { status: 401 }
+      { status: 500 },
     );
   }
 }

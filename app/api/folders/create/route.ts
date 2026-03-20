@@ -1,10 +1,9 @@
 import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
-import { error } from "console";
 import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import {v4 as uuidv4} from "uuid"
+import { v4 as uuidv4 } from "uuid";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +13,7 @@ export async function POST(request: NextRequest) {
         {
           error: "unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const body = await request.json();
@@ -23,9 +22,9 @@ export async function POST(request: NextRequest) {
     if (bodyUserId !== userId) {
       return NextResponse.json(
         {
-          error: "unauthorized",
+          error: "forbidden",
         },
-        { status: 401 }
+        { status: 403 },
       );
     }
 
@@ -36,7 +35,7 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -48,21 +47,21 @@ export async function POST(request: NextRequest) {
           and(
             eq(files.id, parentId),
             eq(files.userId, userId),
-            eq(files.isFolder, true)
-          )
+            eq(files.isFolder, true),
+          ),
         );
       if (!parentFolder) {
         return NextResponse.json(
           {
             error: "parent folder missing",
           },
-          { status: 401 }
+          { status: 404 },
         );
       }
     }
 
-    // folder creation in database 
-    
+    // folder creation in database
+
     const folderData = {
       id: uuidv4(),
       name: name.trim(),
@@ -76,21 +75,23 @@ export async function POST(request: NextRequest) {
       isFolder: true,
       isStarred: false,
       isTrash: false,
-    }
+    };
 
-   const [newFolder] = await db.insert(files).values(folderData).returning()
+    const [newFolder] = await db.insert(files).values(folderData).returning();
 
-   return NextResponse.json({
-      success: true,
-      message: 'folder created succesfully',
-      folder: newFolder
-   
-  })
+    return NextResponse.json(
+      {
+        success: true,
+        message: "folder created succesfully",
+        folder: newFolder,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Error creating folder:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

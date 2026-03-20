@@ -1,8 +1,7 @@
 import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
-import { error } from "console";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import ImageKit from "imagekit";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -14,7 +13,7 @@ const imagekit = new ImageKit({
 
 export async function DELETE(
   request: NextRequest,
-  props: { params: Promise<{ fileId: string }> }
+  props: { params: Promise<{ fileId: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -23,7 +22,7 @@ export async function DELETE(
         {
           error: "unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const { fileId } = await props.params;
@@ -32,7 +31,7 @@ export async function DELETE(
         {
           error: "file id is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -46,7 +45,7 @@ export async function DELETE(
         {
           error: "file not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -92,16 +91,19 @@ export async function DELETE(
       .where(and(eq(files.id, fileId), eq(files.userId, userId)))
       .returning();
 
-    return NextResponse.json({
-      success: true,
-      message: "file delted succesfull",
-      deletedFile,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "file delted succesfull",
+        deletedFile,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("error deleting file: ", error);
     return NextResponse.json(
       { error: "falied to delete file" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

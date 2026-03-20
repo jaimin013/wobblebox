@@ -6,14 +6,12 @@ import { z } from "zod";
 import { signUpSchema } from "@/schemas/signUpSchema";
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { log } from "console";
 import { useRouter } from "next/navigation";
 //ui
 import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card";
-import { Button, ButtonGroup } from "@heroui/button";
+import { Button } from "@heroui/button";
 import { Divider } from "@heroui/divider";
 import { Input } from "@heroui/input";
-import { sign } from "crypto";
 
 //lucide react
 import {
@@ -26,12 +24,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+type ClerkLikeError = {
+  errors?: Array<{ message?: string }>;
+};
+
 export default function SignUpForm() {
   const router = useRouter();
   const [verifying, setVerifying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(
-    null
+    null,
   );
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -57,7 +59,7 @@ export default function SignUpForm() {
     setAuthError(null);
 
     try {
-      signUp.create({
+      await signUp.create({
         emailAddress: data.email,
         password: data.password,
       });
@@ -65,17 +67,19 @@ export default function SignUpForm() {
         strategy: "email_code",
       });
       setVerifying(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const clerkError = error as ClerkLikeError;
       console.error("Signup error:", error);
       setAuthError(
-        error.errors?.[0]?.message || "error occured during signp do it again"
+        clerkError.errors?.[0]?.message ||
+          "error occured during signp do it again",
       );
     } finally {
       setIsSubmitting(false);
     }
   };
   const handleverificationSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
+    e: React.FormEvent<HTMLFormElement>,
   ) => {
     e.preventDefault();
     if (!isLoaded || !signUp) return;
@@ -97,10 +101,11 @@ export default function SignUpForm() {
         console.error("verification incomplete", result);
         setVerificationError("verifcication is not completed");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const clerkError = error as ClerkLikeError;
       console.error("verification incomplete", error);
       setVerificationError(
-        error.errors?.[0].message || "error occured pls try again"
+        clerkError.errors?.[0]?.message || "error occured pls try again",
       );
     } finally {
       setIsSubmitting(false);
@@ -109,13 +114,13 @@ export default function SignUpForm() {
 
   if (verifying) {
     return (
-      <Card className="w-full max-w-md border border-default-200 bg-default-50 shadow-xl">
+      <Card className="w-full max-w-md border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
         <CardHeader className="flex flex-col gap-1 items-center pb-2">
-          <h1 className="text-2xl font-bold text-default-900">
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
             Verify your email
           </h1>
-          <p className="text-default-500 text-center">
-            We've sent a verification code to your email
+          <p className="text-zinc-600 text-center dark:text-zinc-300">
+            We&apos;ve sent a verification code to your email
           </p>
         </CardHeader>
 
@@ -125,7 +130,7 @@ export default function SignUpForm() {
           {verificationError && (
             <div className="bg-danger-50 text-danger-700 p-4 rounded-lg mb-6 flex items-center gap-2">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <p>{verificationCode}</p>
+              <p>{verificationError}</p>
             </div>
           )}
 
@@ -133,7 +138,7 @@ export default function SignUpForm() {
             <div className="space-y-2">
               <label
                 htmlFor="verificationCode"
-                className="text-sm font-medium text-default-900"
+                className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
               >
                 Verification Code
               </label>
@@ -159,8 +164,8 @@ export default function SignUpForm() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-default-500">
-              Didn't recieve code?{" "}
+            <p className="text-sm text-zinc-600 dark:text-zinc-300">
+              Didn&apos;t recieve code?{" "}
               <button
                 onClick={async () => {
                   if (signUp) {
@@ -180,14 +185,13 @@ export default function SignUpForm() {
     );
   }
 
-  // <h1>signup form with email and other field </h1>;
   return (
-    <Card className="w-full max-w-md border-default-200 bg-default-50 shadow-xl">
+    <Card className="w-full max-w-md border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
       <CardHeader className="flex flex-col gap-1 items-center pb-2">
-        <h1 className="text-2xl font-bold text-default-900">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
           Create your account
         </h1>
-        <p className="text-default-500 text-center">
+        <p className="text-zinc-600 text-center dark:text-zinc-300">
           Sign up to start managing your data securely
         </p>
       </CardHeader>
@@ -206,7 +210,7 @@ export default function SignUpForm() {
           <div className="space-y-2">
             <label
               htmlFor="email"
-              className="text-sm font-medium text-default-900"
+              className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
             >
               Email
             </label>
@@ -225,7 +229,7 @@ export default function SignUpForm() {
           <div className="space-y-2">
             <label
               htmlFor="password"
-              className="text-sm font-medium text-default-900"
+              className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
             >
               Password
             </label>
@@ -259,7 +263,7 @@ export default function SignUpForm() {
           <div className="space-y-2">
             <label
               htmlFor="passwordConfirmation"
-              className="text-sm font-medium text-default-900"
+              className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
             >
               Confirm Password
             </label>
@@ -293,7 +297,7 @@ export default function SignUpForm() {
           <div className="space-y-4">
             <div className="flex items-start gap-2">
               <CheckCircle className="h-5 w-5 text-primary mt-0.5" />
-              <p className="text-sm text-default-600">
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">
                 By signing up you agree to out policy
               </p>
             </div>
@@ -313,8 +317,8 @@ export default function SignUpForm() {
       <Divider />
 
       <CardFooter className="flex justify-center py-4">
-        <p className="text-sm text-default-600">
-          Alreay have an account?{""}
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          Alreay have an account?{" "}
           <Link
             href="/sign-in"
             className="text-primary hover:underline font-medium"

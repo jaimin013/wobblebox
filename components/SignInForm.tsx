@@ -6,24 +6,17 @@ import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card";
 import { Divider } from "@heroui/divider";
 import { Input } from "@heroui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button, ButtonGroup } from "@heroui/button";
-import {
-  AlertCircle,
-  Mail,
-  // CheckCircle,
-  // Eye,
-  // EyeOff,
-  Lock,
-  CheckCircle,
-  Eye,
-  EyeOff,
-  Link,
-  // Mail,
-} from "lucide-react";
+import { Button } from "@heroui/button";
+import { AlertCircle, Mail, Lock, Eye, EyeOff } from "lucide-react";
+
+type ClerkLikeError = {
+  errors?: Array<{ message?: string }>;
+};
 
 export default function SignInForm() {
   const router = useRouter();
@@ -44,8 +37,6 @@ export default function SignInForm() {
     },
   });
 
-  
-
   const onSubmit = async (data: z.infer<typeof signInSchema>) => {
     if (!isLoaded) return;
     setIsSubmitting(true);
@@ -59,14 +50,15 @@ export default function SignInForm() {
 
       if (result.status == "complete") {
         await setActive({ session: result.createdSessionId });
-        router.push("/dashboard")
+        router.push("/dashboard");
       } else {
-        console.error("Singin inccomplete", result)
+        console.error("Singin inccomplete", result);
         setAuthError("error in signing in");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const clerkError = error as ClerkLikeError;
       setAuthError(
-        error.errors?.[0].message || "an error occured in sigining in"
+        clerkError.errors?.[0]?.message || "an error occured in sigining in",
       );
     } finally {
       setIsSubmitting(false);
@@ -74,10 +66,12 @@ export default function SignInForm() {
   };
 
   return (
-    <Card className="w-full max-w-md border border-default-200 bg-default-50 shadow-xl">
+    <Card className="w-full max-w-md border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
       <CardHeader className="flex flex-col gap-1 items-center pb-2">
-        <h1 className="text-2xl font-bold text-default-900">Welcome back</h1>
-        <p className="text-default-500 text-center">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          Welcome back
+        </h1>
+        <p className="text-zinc-600 text-center dark:text-zinc-300">
           Sign in to access your storage
         </p>
       </CardHeader>
@@ -96,7 +90,7 @@ export default function SignInForm() {
           <div className="space-y-2">
             <label
               htmlFor="email"
-              className="text-sm font-medium text-default-900"
+              className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
             >
               Email
             </label>
@@ -115,7 +109,7 @@ export default function SignInForm() {
           <div className="space-y-2">
             <label
               htmlFor="password"
-              className="text-sm font-medium text-default-900"
+              className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
             >
               Password
             </label>
@@ -160,8 +154,8 @@ export default function SignInForm() {
       <Divider />
 
       <CardFooter className="flex justify-center py-4">
-        <p className="text-sm text-default-600">
-          Dont't have an account?{""}
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          Don&apos;t have an account?{" "}
           <Link
             href="/sign-up"
             className="text-primary hover:underline font-medium"

@@ -1,11 +1,13 @@
 import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
-import { error } from "console";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  props: { params: Promise<{ fileId: string }> },
+) {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -13,41 +15,41 @@ export async function GET(request: NextRequest) {
         {
           error: "unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
-    //query parameters def
-    const searchParams = request.nextUrl.searchParams;
-    const queryUserId = searchParams.get("userId");
-    const parentId = searchParams.get("parentId");
-
-    //verifying if user is requesting his own file
-    if (!queryUserId || queryUserId !== userId) {
+    const { fileId } = await props.params;
+    if (!fileId) {
       return NextResponse.json(
         {
-          error: "unauthorized",
+          error: "file id is required",
         },
-        { status: 401 }
+        { status: 400 },
       );
     }
 
-    let userFiles;
-    if (parentId) {
-      userFiles = await db
-        .select()
-        .from(files)
-        .where(and(eq(files.userId, userId), eq(files.parentId, parentId)));
-    } else {
-      userFiles = await db
-        .select()
-        .from(files)
-        .where(and(eq(files.userId, userId), isNull(files.parentId)));
+    const [file] = await db
+      .select()
+      .from(files)
+      .where(and(eq(files.id, fileId), eq(files.userId, userId)));
+
+    if (!file) {
+      return NextResponse.json(
+        {
+          error: "file not found",
+        },
+        { status: 404 },
+      );
     }
-    return NextResponse.json(userFiles);
+
+    return NextResponse.json(file);
   } catch (error) {
-    console.error("error fetching files", error);
-    return NextResponse.json({
-      error: "failed to fetch filrs", 
-    }, {status: 500})
+    console.error("Error fetching file", error);
+    return NextResponse.json(
+      {
+        error: "failed to fetch file",
+      },
+      { status: 500 },
+    );
   }
 }

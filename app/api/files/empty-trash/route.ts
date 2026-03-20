@@ -1,10 +1,9 @@
 import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
-import { error } from "console";
 import { eq, and } from "drizzle-orm";
 import ImageKit from "imagekit";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 const imagekit = new ImageKit({
   publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY || "",
@@ -26,7 +25,7 @@ export async function DELETE() {
     if (trashedFiles.length === 0) {
       return NextResponse.json(
         { message: "No files in trash" },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -64,7 +63,7 @@ export async function DELETE() {
             } catch (searchError) {
               console.error(
                 `Error searching for file in ImageKit:`,
-                searchError
+                searchError,
               );
               await imagekit.deleteFile(imagekitFileId);
             }
@@ -89,7 +88,7 @@ export async function DELETE() {
     console.error("Error emptying trash:", error);
     return NextResponse.json(
       { error: "Failed to empty trash" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
