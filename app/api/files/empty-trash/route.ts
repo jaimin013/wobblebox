@@ -2,13 +2,11 @@ import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
 import { eq, and } from "drizzle-orm";
-import ImageKit from "imagekit";
+import ImageKit from "@imagekit/nodejs";
 import { NextResponse } from "next/server";
 
 const imagekit = new ImageKit({
-  publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY || "",
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY || "",
-  urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT || "",
 });
 
 export async function DELETE() {
@@ -46,26 +44,23 @@ export async function DELETE() {
 
           if (imagekitFileId) {
             try {
-              const searchResults = await imagekit.listFiles({
-                name: imagekitFileId,
+              const searchResults = await imagekit.assets.list({
+                searchQuery: `name = \"${imagekitFileId}\"`,
                 limit: 1,
+                type: "file",
               });
 
-              if (
-                searchResults &&
-                searchResults.length > 0 &&
-                "fileId" in searchResults[0]
-              ) {
-                await imagekit.deleteFile(searchResults[0].fileId);
-              } else {
-                await imagekit.deleteFile(imagekitFileId);
+              if (searchResults && searchResults.length > 0) {
+                const firstResult = searchResults[0];
+                if ("fileId" in firstResult && firstResult.fileId) {
+                  await imagekit.files.delete(firstResult.fileId);
+                }
               }
             } catch (searchError) {
               console.error(
                 `Error searching for file in ImageKit:`,
                 searchError,
               );
-              await imagekit.deleteFile(imagekitFileId);
             }
           }
         } catch (error) {

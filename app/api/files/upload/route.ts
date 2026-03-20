@@ -2,14 +2,13 @@ import { db } from "@/lib/db";
 import { files } from "@/lib/db/schema";
 import { auth } from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
-import ImageKit from "imagekit";
+import ImageKit from "@imagekit/nodejs";
+import { toFile } from "@imagekit/nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
 const imagekit = new ImageKit({
-  publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY || "",
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY || "",
-  urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT || "",
 });
 
 export async function POST(request: NextRequest) {
@@ -144,8 +143,9 @@ export async function POST(request: NextRequest) {
 
     let uploadResponse;
     try {
-      uploadResponse = await imagekit.upload({
-        file: fileBuffer,
+      const uploadableFile = await toFile(fileBuffer, uniqueFilename);
+      uploadResponse = await imagekit.files.upload({
+        file: uploadableFile,
         fileName: uniqueFilename,
         folder: folderPath,
         useUniqueFileName: false,
@@ -166,10 +166,12 @@ export async function POST(request: NextRequest) {
 
     const fileData = {
       name: originalFilename,
-      path: uploadResponse.filePath,
+      path: uploadResponse.filePath || `${folderPath}/${uniqueFilename}`,
       size: file.size,
       type: file.type,
-      fileUrl: uploadResponse.url,
+      fileUrl:
+        uploadResponse.url ||
+        `${process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT || ""}${uploadResponse.filePath || `${folderPath}/${uniqueFilename}`}`,
       thumbnailUrl: uploadResponse.thumbnailUrl || null,
       userId: userId,
       parentId: parentId || null,

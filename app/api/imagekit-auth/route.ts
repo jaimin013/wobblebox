@@ -1,11 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import Imagekit from "imagekit";
+import Imagekit from "@imagekit/nodejs";
 
 const imagekit = new Imagekit({
-  publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY || "",
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY || "",
-  urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT || "",
 });
 
 export async function GET() {
@@ -15,7 +13,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const authParams = imagekit.getAuthenticationParameters();
+    const authParams = imagekit.helper.getAuthenticationParameters();
 
     return NextResponse.json(authParams);
   } catch (error) {

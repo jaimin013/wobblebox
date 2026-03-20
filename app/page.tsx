@@ -1,11 +1,13 @@
 import { Button } from "@heroui/button";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { Card, CardBody } from "@heroui/card";
 import { CloudUpload, Image as ImageIcon, ArrowRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+
   return (
     <div className="min-h-screen flex flex-col bg-default-50">
       <Navbar />
@@ -25,19 +27,21 @@ export default function Home() {
                 </p>
 
                 <div className="flex flex-wrap gap-4 pt-6 justify-center lg:justify-start">
-                  <SignedOut>
-                    <Link href="/sign-up">
-                      <Button className="btn-2">
-                        <span>Get Started</span>
-                      </Button>
-                    </Link>
-                    <Link href="/sign-in">
-                      <Button className="btn-2 ">
-                        <span>Sign In</span>
-                      </Button>
-                    </Link>
-                  </SignedOut>
-                  <SignedIn>
+                  {!userId && (
+                    <>
+                      <Link href="/sign-up">
+                        <Button className="btn-2">
+                          <span>Get Started</span>
+                        </Button>
+                      </Link>
+                      <Link href="/sign-in">
+                        <Button className="btn-2 ">
+                          <span>Sign In</span>
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+                  {userId && (
                     <Link href="/dashboard">
                       <Button
                         size="lg"
@@ -48,7 +52,7 @@ export default function Home() {
                         Go to Dashboard
                       </Button>
                     </Link>
-                  </SignedIn>
+                  )}
                 </div>
               </div>
 
@@ -120,12 +124,12 @@ export default function Home() {
               Sign up and organize your visual world.
             </p>
             <div className="flex justify-center gap-4 mt-6">
-              <SignedOut>
+              {!userId && (
                 <Link href="/sign-up">
                   <button className="neon-button">Let’s Go</button>
                 </Link>
-              </SignedOut>
-              <SignedIn>
+              )}
+              {userId && (
                 <Link href="/dashboard">
                   <Button
                     size="lg"
@@ -137,7 +141,7 @@ export default function Home() {
                     Dashboard
                   </Button>
                 </Link>
-              </SignedIn>
+              )}
             </div>
           </div>
         </section>

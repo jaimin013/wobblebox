@@ -1,7 +1,7 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs/legacy";
 import { z } from "zod";
 import { signUpSchema } from "@/schemas/signUpSchema";
 import { useState } from "react";
